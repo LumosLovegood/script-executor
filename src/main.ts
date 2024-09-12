@@ -4,28 +4,49 @@ import {
 	ScriptExecutorSettingTab,
 } from "./modals/settingTab";
 import { log, logging } from "./lib/logging";
-import { ScriptExecutorSettings } from "./types/type";
+import { BaseLLM, ScriptExecutorSettings } from "./types/type";
 import EditorExecutorApi from "./api/EditorExecutorApi";
 import BlockExecutorApi from "./api/BlockExecutorApi";
 import ProtocolExecutorApi from "./api/ProtocolExecutorApi";
+import ZhipuLLM from "./llm/ZhipuLLM";
 
 export const PLUGIN_ID = "se";
 export default class ScriptExecutor extends Plugin {
 	settings: ScriptExecutorSettings;
 	statusBar: HTMLElement;
 	commands: any[];
+	llm: BaseLLM;
+
 	async onload() {
+		this.registerLogger();
+		await this.loadSettings();
+		this.registerLLM();
+		this.registerCommands();
+		this.registerProtocolHandlers();
+		this.registerContextMenus();
+		this.registerCodeBlocks();
+		this.registerSettingTab();
+	}
+
+	registerLogger() {
 		logging.registerConsoleLogger();
 		log(
 			"info",
 			`loading plugin "${this.manifest.name}" v${this.manifest.version}`
 		);
-		await this.loadSettings();
-		this.registerCommands();
-		this.registerProtocolHandlers();
-		this.registerContextMenus();
-		this.registerCodeBlocks();
-		this.addSettingTab(new ScriptExecutorSettingTab(this, this.app));
+	}
+
+	registerLLM() {
+		const selectedLLM = this.settings.llm.selected;
+		if (selectedLLM === "zhipu") {
+			this.llm = new ZhipuLLM(
+				{
+					...this.settings.llm.available.zhipu,
+					delay: this.settings.llm.streamDelay,
+				},
+				this.app
+			);
+		}
 	}
 
 	registerCommands() {}
@@ -37,7 +58,11 @@ export default class ScriptExecutor extends Plugin {
 				this.registerObsidianProtocolHandler(
 					identifier,
 					async (params: ObsidianProtocolData) => {
-						const api = new ProtocolExecutorApi(params, this.app);
+						const api = new ProtocolExecutorApi(
+							params,
+							this.app,
+							this.llm
+						);
 						const userFunc = await this.getUserScript(f.path);
 						userFunc(api);
 					}
@@ -57,7 +82,8 @@ export default class ScriptExecutor extends Plugin {
 							src,
 							el,
 							ctx,
-							this.app
+							this.app,
+							this.llm
 						);
 						const userFunc = await this.getUserScript(f.path);
 						userFunc(api);
@@ -79,9 +105,9 @@ export default class ScriptExecutor extends Plugin {
 								return;
 							}
 							const api = new EditorExecutorApi(
-								selection,
 								editor,
-								this.app
+								this.app,
+								this.llm
 							);
 							menu.addItem((item) => {
 								item.setIcon(f.icon)
@@ -98,6 +124,10 @@ export default class ScriptExecutor extends Plugin {
 				);
 			}
 		});
+	}
+
+	registerSettingTab() {
+		this.addSettingTab(new ScriptExecutorSettingTab(this, this.app));
 	}
 
 	async loadSettings() {

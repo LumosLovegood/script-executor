@@ -6,6 +6,11 @@ export const DEFAULT_SETTINGS: ScriptExecutorSettings = {
 	editorFuncs: [],
 	blockFuncs: [],
 	protocolFuncs: [],
+	llm: {
+		selected: "none",
+		available: {},
+		streamDelay: 100,
+	},
 };
 export class ScriptExecutorSettingTab extends PluginSettingTab {
 	cookies = "";

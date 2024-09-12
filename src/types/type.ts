@@ -27,9 +27,47 @@ export interface ProtocolFunc {
 	identifier: string;
 }
 
+export interface LLMConifg {
+	apiKey: string;
+	endpoint: string;
+	model?: string;
+	delay?: number;
+}
 export interface ScriptExecutorSettings {
 	scriptFolder: string;
 	editorFuncs: EditorFunc[];
 	blockFuncs: BlockFunc[];
 	protocolFuncs: ProtocolFunc[];
+	llm: {
+		selected: string;
+		available: {
+			[key: string]: LLMConifg;
+		};
+		streamDelay?: number;
+	};
+}
+
+export interface Palette {
+	light: string[];
+	dark: string[];
+}
+
+export interface BaseLLM {
+	chat: (prompt: string) => Promise<string>;
+	chatStream: (
+		prompt: string,
+		callback: (word: string) => void
+	) => Promise<void>;
+}
+
+export interface LLMMessage {
+	role: string;
+	content: string;
+}
+export interface ZhipuResponse {
+	choices: {
+		finish_reason: string;
+		index: number;
+		message: LLMMessage;
+	}[];
 }

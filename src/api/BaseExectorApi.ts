@@ -1,8 +1,9 @@
 import { App, normalizePath, TFile } from "obsidian";
+import { BaseLLM } from "src/types/type";
 import { formatFileName } from "src/utils/formats";
 
 export default class BaseExecutorApi {
-	constructor(private readonly app: App) {}
+	constructor(private readonly app: App, readonly llm: BaseLLM) {}
 	async createNote(
 		folder: string,
 		name: string,
