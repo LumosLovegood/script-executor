@@ -1,5 +1,5 @@
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-import * as obsidian from 'obsidian';
+import * as obsidian from "obsidian";
 import { EditorPosition, MarkdownPreviewRenderer, Menu } from "obsidian";
 
 declare module "obsidian" {
@@ -18,9 +18,9 @@ declare module "obsidian" {
 		saveLocalStorage: (key: string, value: string) => void;
 		loadLocalStorage: (key: string) => string;
 		setting: {
-			open: () => void,
-			openTabById: (id: string) => void,
-		}
+			open: () => void;
+			openTabById: (id: string) => void;
+		};
 	}
 
 	interface settings {
@@ -28,21 +28,21 @@ declare module "obsidian" {
 	}
 
 	export interface WorkspaceLeaf {
-		id: string,
-		group: string | undefined,
+		id: string;
+		group: string | undefined;
 		history: {
-			backHistory: Array<any>,
-			forwardHistory: Array<any>
-		},
-		children: WorkspaceLeaf[],
-		tabHeaderInnerIconEl: HTMLDivElement,
-		tabHeaderInnerTitleEl: HTMLDivElement,
-		tabHeaderContainerEl: HTMLDivElement,
-		containerEl: HTMLDivElement,
+			backHistory: Array<any>;
+			forwardHistory: Array<any>;
+		};
+		children: WorkspaceLeaf[];
+		tabHeaderInnerIconEl: HTMLDivElement;
+		tabHeaderInnerTitleEl: HTMLDivElement;
+		tabHeaderContainerEl: HTMLDivElement;
+		containerEl: HTMLDivElement;
 		activeTime: number;
 		rebuildView: () => void;
 		setDimension: (dimension: any) => void;
-		parent: WorkspaceLeaf;
+		parent: WorkspaceTabs | WorkspaceMobileDrawer;
 	}
 	export interface WorkspaceRoot {
 		children: WorkspaceLeaf[];
@@ -56,11 +56,11 @@ declare module "obsidian" {
 	}
 	export interface WorkspaceItem {
 		type: string;
-		getLeavesOfType: (type: string) => WorkspaceLeaf[],
+		getLeavesOfType: (type: string) => WorkspaceLeaf[];
 		activeEditor: {
-			editor: Editor,
-			leaf: WorkspaceLeaf,
-		}
+			editor: Editor;
+			leaf: WorkspaceLeaf;
+		};
 	}
 
 	interface VaultSettings {
@@ -79,32 +79,36 @@ declare module "obsidian" {
 		basePath: string;
 	}
 	class MarkdownPreviewRendererStatic extends MarkdownPreviewRenderer {
-		static registerDomEvents(el: HTMLElement, handlerInstance: unknown, cb: (el: HTMLElement) => unknown): void;
+		static registerDomEvents(
+			el: HTMLElement,
+			handlerInstance: unknown,
+			cb: (el: HTMLElement) => unknown
+		): void;
 	}
 
 	export interface View {
-		contentEl: HTMLElement,
-		editMode: any,
-		sourceMode: any,
-		canvas?: any,
-		editor: Editor,
-		forwardButtonEl: HTMLElement,
-		backButtonEl: HTMLElement,
-		titleEl: HTMLElement,
-		moreOptionsButtonEl: HTMLElement,
-		file?: any
-		titleContainerEl: HTMLElement,
+		contentEl: HTMLElement;
+		editMode: any;
+		sourceMode: any;
+		canvas?: any;
+		editor: Editor;
+		forwardButtonEl: HTMLElement;
+		backButtonEl: HTMLElement;
+		titleEl: HTMLElement;
+		moreOptionsButtonEl: HTMLElement;
+		file?: any;
+		titleContainerEl: HTMLElement;
 	}
 
 	export interface Editor {
-		getClickableTokenAt: (editorPos: EditorPosition) => tokenType
+		getClickableTokenAt: (editorPos: EditorPosition) => tokenType;
 	}
 
 	export interface MenuItem {
 		setSubmenu: () => Menu;
 	}
 	export interface MarkdownFileInfo {
-		leaf: WorkspaceLeaf
+		leaf: WorkspaceLeaf;
 	}
 
 	export interface MarkdownView {
@@ -120,7 +124,7 @@ declare module "obsidian" {
 	}
 }
 
-export type Side = 'top' | 'right' | 'bottom' | 'left';
+export type Side = "top" | "right" | "bottom" | "left";
 
 export interface CanvasData {
 	nodes: (CanvasFileData | CanvasTextData | CanvasLinkData)[];
@@ -147,17 +151,17 @@ export interface CanvasEdgeData {
 }
 
 export interface CanvasFileData extends CanvasNodeData {
-	type: 'file';
+	type: "file";
 	file: string;
 }
 
 export interface CanvasTextData extends CanvasNodeData {
-	type: 'text';
+	type: "text";
 	text: string;
 }
 
 export interface CanvasLinkData extends CanvasNodeData {
-	type: 'link';
+	type: "link";
 	url: string;
 }
 
@@ -165,16 +169,15 @@ export interface ISuggestOwner<T> {
 	renderSuggestion(value: T, el: HTMLElement, index?: number): void;
 }
 
-
 interface tokenType {
 	end: {
-		line: number,
-		ch: number
-	}
+		line: number;
+		ch: number;
+	};
 	start: {
-		line: number,
-		ch: number
-	}
+		line: number;
+		ch: number;
+	};
 	text: string;
 	type: string;
 }

@@ -1,3 +1,5 @@
+import { Hotkey } from "obsidian";
+
 export interface WebViewElement extends HTMLElement {
 	loadURL: (url: string) => void;
 	getURL: () => string;
@@ -7,43 +9,47 @@ export interface WebViewElement extends HTMLElement {
 	openDevTools: () => void;
 }
 
-export interface EditorFunc {
+export interface BaseFunc {
 	type: "script";
 	path: string;
+}
+
+export interface ClickableFunc extends BaseFunc {
 	name: string;
 	icon: string;
 }
 
-export interface BlockFunc {
-	type: "script";
-	path: string;
-	identifier: string;
+export interface CommandFunc extends ClickableFunc {
+	id: string;
+	hotkeys: Hotkey[];
+}
+
+export interface BlockFunc extends BaseFunc {
+	id: string;
 	css: string;
 }
 
-export interface ProtocolFunc {
-	type: "script";
-	path: string;
-	identifier: string;
+export interface ProtocolFunc extends BaseFunc {
+	id: string;
 }
 
 export interface LLMConifg {
 	apiKey: string;
 	endpoint: string;
 	model?: string;
-	delay?: number;
 }
 export interface ScriptExecutorSettings {
 	scriptFolder: string;
-	editorFuncs: EditorFunc[];
+	editorFuncs: ClickableFunc[];
+	fileFuncs: ClickableFunc[];
 	blockFuncs: BlockFunc[];
 	protocolFuncs: ProtocolFunc[];
+	commandFuncs: CommandFunc[];
 	llm: {
 		selected: string;
 		available: {
 			[key: string]: LLMConifg;
 		};
-		streamDelay?: number;
 	};
 }
 
@@ -53,11 +59,14 @@ export interface Palette {
 }
 
 export interface BaseLLM {
-	chat: (prompt: string) => Promise<string>;
-	chatStream: (
+	chat: (prompt: string, useHistory?: boolean) => Promise<string>;
+	streamChat: (
 		prompt: string,
-		callback: (word: string) => void
+		callback: (word: string) => void,
+		useHistory?: boolean,
+		delay?: number
 	) => Promise<void>;
+	clearHistory: () => void;
 }
 
 export interface LLMMessage {

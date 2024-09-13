@@ -1,57 +1,74 @@
 import { parseZhipuChunk } from "src/utils/parses";
-import { BaseLLM, LLMConifg, ZhipuResponse } from "../types/type";
-import { App } from "obsidian";
+import { BaseLLM, LLMConifg, LLMMessage, ZhipuResponse } from "../types/type";
 
 export default class ZhipuLLM implements BaseLLM {
 	private readonly apiKey: string;
 	private readonly endpoint: string;
 	private readonly model: string | undefined;
-	private readonly delay: number | undefined;
-	private readonly history: string[] = [];
+	private history: LLMMessage[];
 
-	constructor(
-		{ apiKey, endpoint, model, delay }: LLMConifg,
-		private readonly app: App
-	) {
+	constructor({ apiKey, endpoint, model }: LLMConifg) {
 		this.apiKey = apiKey;
 		this.endpoint = endpoint;
 		this.model = model;
-		this.delay = delay;
+		this.history = [];
 	}
 
-	async chat(prompt: string): Promise<string> {
-		return this._llm(prompt);
-	}
-
-	async chatStream(
-		prompt: string,
-		callback: (word: string) => void
-	): Promise<void> {
-		const generator = this._llm_stream(prompt);
-		for await (const word of generator) {
-			callback(word);
-			this.delay &&
-				(await new Promise((resolve) =>
-					setTimeout(resolve, this.delay)
-				));
+	async chat(prompt: string, useHistory?: boolean): Promise<string> {
+		let messages: LLMMessage[];
+		if (useHistory) {
+			this.history.push({ role: "user", content: prompt });
+			messages = this.history;
+		} else {
+			messages = [{ role: "user", content: prompt }];
 		}
+		const llmResult = await this._llm(messages);
+		this.history.push({ role: "assistant", content: llmResult });
+		return llmResult;
 	}
 
-	private async _llm(prompt: string): Promise<string> {
-		const res = await fetch(
-			this.endpoint,
-			this.getRequestParams(prompt, false)
-		);
+	async streamChat(
+		prompt: string,
+		callback: (word: string) => void,
+		useHistory?: boolean,
+		delay = 0
+	): Promise<void> {
+		let messages: LLMMessage[];
+		if (useHistory) {
+			this.history.push({ role: "user", content: prompt });
+			messages = this.history;
+		} else {
+			messages = [{ role: "user", content: prompt }];
+		}
+		const generator = this._llm_stream(messages);
+		let llmResult = "";
+		for await (const char of generator) {
+			callback(char);
+			llmResult += char;
+			delay &&
+				(await new Promise((resolve) => setTimeout(resolve, delay)));
+		}
+		this.history.push({ role: "assistant", content: llmResult });
+	}
+
+	clearHistory() {
+		this.history = [];
+	}
+
+	private async _llm(messages: LLMMessage[]): Promise<string> {
+		const llmRequestParams = this.getRequestParams(messages);
+		const res = await fetch(this.endpoint, llmRequestParams);
 		const resData: ZhipuResponse = await res.json();
-		return resData.choices[0].message.content;
+		const llmResult = resData.choices[0].message.content;
+		return llmResult;
 	}
 
 	private async *_llm_stream(
-		prompt: string
+		messages: LLMMessage[]
 	): AsyncGenerator<string, void, unknown> {
 		const response = await fetch(
 			this.endpoint,
-			this.getRequestParams(prompt, true)
+			this.getRequestParams(messages, true)
 		);
 		if (!response || !response.body) {
 			throw new Error(`HTTP error!`);
@@ -70,19 +87,17 @@ export default class ZhipuLLM implements BaseLLM {
 		}
 	}
 
-	private getRequestParams(prompt: string, stream?: boolean): RequestInit {
+	private getRequestParams(
+		messages: LLMMessage[],
+		stream?: boolean
+	): RequestInit {
 		const headers = {
 			Authorization: `Bearer ${this.apiKey}`,
 			"Content-Type": "application/json",
 		};
 		const data = {
 			model: this.model,
-			messages: [
-				{
-					role: "user",
-					content: prompt,
-				},
-			],
+			messages,
 			stream: stream ?? false,
 		};
 		return {

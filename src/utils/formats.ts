@@ -1,3 +1,5 @@
+import { normalizePath } from "obsidian";
+
 const BASE64_CODE_REX = /^data:image\/\w+;base64,/;
 const FILENAME_REX = /[\\/:*?"<>|]/g;
 
@@ -12,6 +14,13 @@ export const formatBase64 = (base64: string) => {
 
 export const formatFileName = (filename: string, ext: string) => {
 	return rexformat(filename, FILENAME_REX, "replace") + "." + ext;
+};
+
+export const formatFilePath = (folder: string, name: string, ext?: string) => {
+	const fileName = formatFileName(name, "md");
+	let filePath = normalizePath(`${folder}/${fileName}`);
+	if (ext) filePath += `.${ext}`;
+	return filePath;
 };
 
 export const formatMdInLink = (
@@ -40,7 +49,7 @@ export const formatMdInImage = (url: string) => {
 	return formatMdInLink(url, "embed");
 };
 
-const durationToSec = (time: string) => {
+export const durationToSec = (time: string) => {
 	const timeArr = time.split(":").reverse();
 	let seconds = 0;
 	timeArr.forEach((t, i) => (seconds += Number(t) * 60 ** i));

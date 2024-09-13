@@ -1,17 +1,6 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import ScriptExecutor from "src/main";
-import { ScriptExecutorSettings } from "src/types/type";
-export const DEFAULT_SETTINGS: ScriptExecutorSettings = {
-	scriptFolder: "Scripts",
-	editorFuncs: [],
-	blockFuncs: [],
-	protocolFuncs: [],
-	llm: {
-		selected: "none",
-		available: {},
-		streamDelay: 100,
-	},
-};
+
 export class ScriptExecutorSettingTab extends PluginSettingTab {
 	cookies = "";
 	constructor(readonly plugin: ScriptExecutor, readonly app: App) {

@@ -6,16 +6,15 @@ import {
 	TAbstractFile,
 	WorkspaceLeaf,
 } from "obsidian";
-import { DEFAULT_SETTINGS, ScriptExecutorSettingTab } from "./ui/settingTab";
+import { ScriptExecutorSettingTab } from "./ui/settingTab";
 import { log, logging } from "./lib/logging";
 import { BaseLLM, ScriptExecutorSettings } from "./types/type";
-import EditorExecutorApi from "./api/EditorExecutorApi";
-import BlockExecutorApi from "./api/BlockExecutorApi";
-import ProtocolExecutorApi from "./api/ProtocolExecutorApi";
 import ZhipuLLM from "./llm/ZhipuLLM";
+import ScriptExecutorApi from "./ScriptExectorApi";
+import { DEFAULT_SETTINGS, PLUGIN_ID } from "./constants";
 
-export const PLUGIN_ID = "se";
 export default class ScriptExecutor extends Plugin {
+	private seApi: ScriptExecutorApi;
 	settings: ScriptExecutorSettings;
 	statusBar: HTMLElement;
 	commands: any[];
@@ -25,11 +24,9 @@ export default class ScriptExecutor extends Plugin {
 		this.registerLogger();
 		await this.loadSettings();
 		this.registerLLM();
-		this.registerCommands();
-		this.registerProtocolHandlers();
-		this.registerContextMenus();
-		this.registerCodeBlocks();
+		this.registerSriptExecutorApi();
 		this.registerSettingTab();
+		this.registerAllScripts();
 	}
 
 	registerLogger() {
@@ -40,35 +37,85 @@ export default class ScriptExecutor extends Plugin {
 		);
 	}
 
+	async loadSettings() {
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
+	}
+
 	registerLLM() {
 		const selectedLLM = this.settings.llm.selected;
 		if (selectedLLM === "zhipu") {
-			this.llm = new ZhipuLLM(
-				{
-					...this.settings.llm.available.zhipu,
-					delay: this.settings.llm.streamDelay,
-				},
-				this.app
-			);
+			this.llm = new ZhipuLLM(this.settings.llm.available.zhipu);
 		}
 	}
 
-	registerCommands() {}
+	registerSriptExecutorApi() {
+		this.seApi = new ScriptExecutorApi(this.app, this.llm);
+	}
+
+	registerSettingTab() {
+		this.addSettingTab(new ScriptExecutorSettingTab(this, this.app));
+	}
+
+	registerAllScripts() {
+		this.registerCommands();
+		this.registerProtocolHandlers();
+		this.registerFileMenus();
+		this.registerEditorMenus();
+		this.registerCodeBlocks();
+	}
+
+	registerCommands() {
+		this.settings.commandFuncs.forEach(async (f) => {
+			if (f.type === "script") {
+				const id = PLUGIN_ID + "-" + f.id;
+				this.addCommand({
+					id: id,
+					name: f.name,
+					icon: f.icon,
+					hotkeys: f.hotkeys,
+					callback: async () => {
+						const userFunc = await this.getUserScript(f.path);
+						userFunc({ seApi: this.seApi });
+					},
+				});
+			}
+		});
+	}
+
+	registerFileMenus() {
+		this.settings.fileFuncs.forEach(async (f) => {
+			if (f.type === "script") {
+				this.registerEvent(
+					this.app.workspace.on(
+						"file-menu",
+						async (
+							menu: Menu,
+							file: TAbstractFile,
+							source: string,
+							leaf: WorkspaceLeaf
+						) => {
+							const userFunc = await this.getUserScript(f.path);
+							userFunc({ seApi: this.seApi });
+						}
+					)
+				);
+			}
+		});
+	}
 
 	registerProtocolHandlers() {
 		this.settings.protocolFuncs.forEach(async (f) => {
 			if (f.type === "script") {
-				const identifier = PLUGIN_ID + "-" + f.identifier;
+				const identifier = PLUGIN_ID + "-" + f.id;
 				this.registerObsidianProtocolHandler(
 					identifier,
-					async (params: ObsidianProtocolData) => {
-						const api = new ProtocolExecutorApi(
-							params,
-							this.app,
-							this.llm
-						);
+					async (protocolData: ObsidianProtocolData) => {
 						const userFunc = await this.getUserScript(f.path);
-						userFunc(api);
+						userFunc({ seApi: this.seApi, protocolData });
 					}
 				);
 			}
@@ -78,26 +125,19 @@ export default class ScriptExecutor extends Plugin {
 	registerCodeBlocks() {
 		this.settings.blockFuncs.forEach(async (f) => {
 			if (f.type === "script") {
-				const identifier = PLUGIN_ID + "-" + f.identifier;
+				const identifier = PLUGIN_ID + "-" + f.id;
 				this.registerMarkdownCodeBlockProcessor(
 					identifier,
 					async (src, el, ctx) => {
-						const api = new BlockExecutorApi(
-							src,
-							el,
-							ctx,
-							this.app,
-							this.llm
-						);
 						const userFunc = await this.getUserScript(f.path);
-						userFunc(api);
+						userFunc({ seApi: this.seApi, src, el, ctx });
 					}
 				);
 			}
 		});
 	}
 
-	registerContextMenus() {
+	registerEditorMenus() {
 		this.settings.editorFuncs.forEach(async (f) => {
 			if (f.type === "script") {
 				this.registerEvent(
@@ -108,22 +148,16 @@ export default class ScriptExecutor extends Plugin {
 							if (selection === "") {
 								return;
 							}
-							const api = new EditorExecutorApi(
-								editor,
-								this.app,
-								this.llm
-							);
 							menu.addItem((item) => {
 								item.setIcon(f.icon)
 									.setTitle(f.name)
 									.onClick(async () => {
 										const userScripts =
 											await this.getUserScript(f.path);
-										const res = await userScripts(api);
-										log(
-											"info",
-											`Running: ${f.path}: ${res}`
-										);
+										await userScripts({
+											seApi: this.seApi,
+										});
+										log("info", `Running: ${f.path}`);
 									});
 							});
 						}
@@ -131,18 +165,6 @@ export default class ScriptExecutor extends Plugin {
 				);
 			}
 		});
-	}
-
-	registerSettingTab() {
-		this.addSettingTab(new ScriptExecutorSettingTab(this, this.app));
-	}
-
-	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
 	}
 
 	async saveSettings() {
