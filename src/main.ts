@@ -1,8 +1,12 @@
-import { Editor, Menu, ObsidianProtocolData, Plugin } from "obsidian";
 import {
-	DEFAULT_SETTINGS,
-	ScriptExecutorSettingTab,
-} from "./modals/settingTab";
+	Editor,
+	Menu,
+	ObsidianProtocolData,
+	Plugin,
+	TAbstractFile,
+	WorkspaceLeaf,
+} from "obsidian";
+import { DEFAULT_SETTINGS, ScriptExecutorSettingTab } from "./ui/settingTab";
 import { log, logging } from "./lib/logging";
 import { BaseLLM, ScriptExecutorSettings } from "./types/type";
 import EditorExecutorApi from "./api/EditorExecutorApi";
@@ -116,7 +120,10 @@ export default class ScriptExecutor extends Plugin {
 										const userScripts =
 											await this.getUserScript(f.path);
 										const res = await userScripts(api);
-										console.log(res);
+										log(
+											"info",
+											`Running: ${f.path}: ${res}`
+										);
 									});
 							});
 						}
