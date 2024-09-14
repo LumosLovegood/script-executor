@@ -19,6 +19,10 @@ export interface ClickableFunc extends BaseFunc {
 	icon: string;
 }
 
+export interface EditorFunc extends ClickableFunc {
+	alwaysShow?: boolean;
+}
+
 export interface CommandFunc extends ClickableFunc {
 	id: string;
 	hotkeys: Hotkey[];
@@ -40,7 +44,7 @@ export interface LLMConifg {
 }
 export interface ScriptExecutorSettings {
 	scriptFolder: string;
-	editorFuncs: ClickableFunc[];
+	editorFuncs: EditorFunc[];
 	fileFuncs: ClickableFunc[];
 	blockFuncs: BlockFunc[];
 	protocolFuncs: ProtocolFunc[];
@@ -59,24 +63,28 @@ export interface Palette {
 }
 
 export interface BaseLLM {
-	chat: (prompt: string, useHistory?: boolean) => Promise<string>;
-	streamChat: (
-		prompt: string,
-		callback: (word: string) => void,
-		useHistory?: boolean,
-		delay?: number
-	) => Promise<void>;
+	chat: (chatParams: LLMChatParams) => Promise<string>;
 	clearHistory: () => void;
+	retry: () => Promise<string>;
 }
 
-export interface LLMMessage {
-	role: string;
+export type LLMChatType = "chat" | "streamChat";
+export type LLMChatCallback = (word: string) => void;
+export interface LLMChatParams {
+	question: string;
+	type?: LLMChatType;
+	useHistory?: boolean;
+	callback?: LLMChatCallback;
+	delay?: number;
+}
+export interface LLMChatMessage {
+	role: "system" | "assistant" | "user";
 	content: string;
 }
 export interface ZhipuResponse {
 	choices: {
 		finish_reason: string;
 		index: number;
-		message: LLMMessage;
+		message: LLMChatMessage;
 	}[];
 }

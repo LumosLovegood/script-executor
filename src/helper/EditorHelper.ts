@@ -1,13 +1,13 @@
-import { App, Editor } from "obsidian";
+import { App, Editor, EditorPosition } from "obsidian";
 
 export default class EditorHelper {
 	private editor: Editor | undefined;
+	private from: EditorPosition | undefined;
+	private to: EditorPosition | undefined;
 	constructor(private readonly app: App) {}
 
 	private getEditor() {
-		if (!this.editor) {
-			this.editor = this.app.workspace.activeEditor?.editor;
-		}
+		this.editor = this.app.workspace.activeEditor?.editor;
 		if (!this.editor) {
 			throw new Error("No editor found");
 		}
@@ -15,17 +15,39 @@ export default class EditorHelper {
 	}
 
 	getSelection() {
-		return this.getEditor()?.getSelection();
+		const selection = this.getEditor()?.getSelection();
+		if (selection && selection.length > 0) {
+			return selection;
+		}
+		return this.getEditor().getLine(this.getEditor().getCursor().line);
+	}
+
+	flagPos(type: "from" | "to") {
+		const cursor = this.getEditor().getCursor("to");
+		if (type === "from") {
+			this.from = cursor;
+		} else {
+			this.to = cursor;
+		}
+	}
+
+	clearRange() {
+		const editor = this.getEditor();
+		if (!editor) {
+			return;
+		}
+		this.from && this.to && editor.replaceRange("", this.from, this.to);
+		this.from = this.to = undefined;
 	}
 
 	insertBlankLine(count = 1) {
 		if (!this.getEditor() || !this.editor) {
 			return;
 		}
-		const pos = this.editor.getCursor("to");
-		this.editor.setCursor(pos);
+		const startPos = this.editor.getCursor("to");
+		this.editor.setCursor(startPos);
 		this.editor.focus();
-		const blank = pos.ch === 0 ? "" : "\n";
+		const blank = startPos.ch === 0 ? "" : "\n";
 		this.editor.replaceSelection(blank);
 		for (let i = 0; i < count; i++) {
 			this.editor.replaceSelection("\n");
@@ -38,7 +60,7 @@ export default class EditorHelper {
 		}
 		this.insertBlankLine();
 		this.editor.replaceSelection(text);
-		this.insertBlankLine();
+		this.insertBlankLine(0);
 	}
 
 	typeWriter(char: string) {

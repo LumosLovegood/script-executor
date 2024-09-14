@@ -1,7 +1,7 @@
 import { App, Notice, TAbstractFile } from "obsidian";
 import EditorHelper from "src/helper/EditorHelper";
 import FileHelper from "src/helper/FileHelper";
-import { BaseLLM } from "src/types/type";
+import { BaseLLM, LLMChatParams } from "src/types/type";
 import { formatFilePath } from "src/utils/formats";
 
 export default class ScriptExecutorApi {
@@ -35,30 +35,27 @@ export default class ScriptExecutorApi {
 		this.editorHelper.insertToNextLine(text);
 	}
 
-	async chat(text: string, useHistory?: boolean) {
-		return this.llm.chat(text, useHistory);
+	async chat(chatParams: LLMChatParams) {
+		return this.llm.chat(chatParams);
 	}
 
-	async streamChat(
-		text: string,
-		callback: (text: string) => void,
-		useHistory?: boolean,
-		delay = 0
-	) {
-		return this.llm.streamChat(text, callback, useHistory, delay);
+	async retryChat() {
+		this.editorHelper.clearRange();
+		return this.llm.retry();
 	}
 
-	async typewriterChat(text: string, useHistory?: boolean, delay = 0) {
-		this.editorHelper.insertBlankLine();
+	async typewriterChat(chatParams: LLMChatParams) {
+		this.editorHelper.insertBlankLine(1);
+		this.editorHelper.flagPos("from");
 		new Notice("Typing...");
-		await this.llm.streamChat(
-			text,
-			(char) => this.editorHelper.typeWriter(char),
-			useHistory,
-			delay
-		);
+		await this.chat({
+			...chatParams,
+			type: "streamChat",
+			callback: (ch) => this.editorHelper.typeWriter(ch),
+		});
 		new Notice("Done!");
-		this.editorHelper.insertBlankLine();
+		this.editorHelper.insertBlankLine(0);
+		this.editorHelper.flagPos("to");
 	}
 
 	clearChatHistory() {

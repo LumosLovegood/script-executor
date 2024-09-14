@@ -4,7 +4,6 @@ import {
 	ObsidianProtocolData,
 	Plugin,
 	TAbstractFile,
-	WorkspaceLeaf,
 } from "obsidian";
 import { ScriptExecutorSettingTab } from "./ui/settingTab";
 import { log, logging } from "./lib/logging";
@@ -12,13 +11,14 @@ import { BaseLLM, ClickableFunc, ScriptExecutorSettings } from "./types/type";
 import ZhipuLLM from "./llm/ZhipuLLM";
 import ScriptExecutorApi from "./ScriptExectorApi";
 import { DEFAULT_SETTINGS, PLUGIN_ID } from "./constants";
+import { Suggester } from "./ui/suggester";
 
 export default class ScriptExecutor extends Plugin {
 	private seApi: ScriptExecutorApi;
-	settings: ScriptExecutorSettings;
-	statusBar: HTMLElement;
+	private settings: ScriptExecutorSettings;
+	private llm: BaseLLM;
+	private statusBar: HTMLElement;
 	commands: any[];
-	llm: BaseLLM;
 
 	async onload() {
 		this.registerLogger();
@@ -69,6 +69,22 @@ export default class ScriptExecutor extends Plugin {
 	}
 
 	registerCommands() {
+		this.addCommand({
+			id: "se-retry-llm",
+			name: "重新生成",
+			icon: "",
+			callback: async () => {
+				this.seApi.retryChat();
+			},
+		});
+		this.addCommand({
+			id: "se-clear-chat",
+			name: "清除聊天记录",
+			icon: "",
+			callback: async () => {
+				this.seApi.clearChatHistory();
+			},
+		});
 		this.settings.commandFuncs.forEach(async (f) => {
 			if (f.type === "script") {
 				const id = PLUGIN_ID + "-" + f.id;
@@ -94,7 +110,7 @@ export default class ScriptExecutor extends Plugin {
 						"file-menu",
 						async (menu: Menu, file: TAbstractFile) => {
 							this.seApi.setFile(file);
-							this.addMenuItem(menu, f);
+							this.addScriptMenuItem(menu, f);
 						}
 					)
 				);
@@ -133,17 +149,32 @@ export default class ScriptExecutor extends Plugin {
 	}
 
 	registerEditorMenus() {
+		this.registerEvent(
+			this.app.workspace.on("editor-menu", async (menu: Menu) => {
+				menu.addItem((item) => {
+					item.setTitle("SE命令集").onClick(async () => {
+						const commands = this.getPluginCommands();
+						const { id } = await Suggester.build(
+							commands,
+							this.app
+						);
+						this.app.commands.executeCommandById(id);
+					});
+				});
+			})
+		);
 		this.settings.editorFuncs.forEach(async (f) => {
 			if (f.type === "script") {
 				this.registerEvent(
 					this.app.workspace.on(
 						"editor-menu",
 						async (menu: Menu, editor: Editor) => {
-							const selection = editor.getSelection();
-							if (selection === "") {
-								return;
+							if (
+								f.alwaysShow ||
+								editor.getSelection().length > 0
+							) {
+								this.addScriptMenuItem(menu, f);
 							}
-							this.addMenuItem(menu, f);
 						}
 					)
 				);
@@ -151,7 +182,7 @@ export default class ScriptExecutor extends Plugin {
 		});
 	}
 
-	addMenuItem(menu: Menu, f: ClickableFunc) {
+	addScriptMenuItem(menu: Menu, f: ClickableFunc) {
 		menu.addItem((item) => {
 			item.setIcon(f.icon)
 				.setTitle(f.name)
@@ -191,6 +222,20 @@ export default class ScriptExecutor extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	getPluginCommands() {
+		if (this.commands) return this.commands;
+		this.commands = this.app.commands
+			.listCommands()
+			.filter((i: any) => i.id.startsWith(this.manifest.id))
+			.map((i: any) => {
+				return {
+					id: i.id,
+					text: i.name.replace(this.manifest.name + ": ", ""),
+				};
+			});
+		return this.commands;
 	}
 
 	onunload() {
