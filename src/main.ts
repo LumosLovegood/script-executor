@@ -8,7 +8,7 @@ import {
 } from "obsidian";
 import { ScriptExecutorSettingTab } from "./ui/settingTab";
 import { log, logging } from "./lib/logging";
-import { BaseLLM, ScriptExecutorSettings } from "./types/type";
+import { BaseLLM, ClickableFunc, ScriptExecutorSettings } from "./types/type";
 import ZhipuLLM from "./llm/ZhipuLLM";
 import ScriptExecutorApi from "./ScriptExectorApi";
 import { DEFAULT_SETTINGS, PLUGIN_ID } from "./constants";
@@ -92,14 +92,9 @@ export default class ScriptExecutor extends Plugin {
 				this.registerEvent(
 					this.app.workspace.on(
 						"file-menu",
-						async (
-							menu: Menu,
-							file: TAbstractFile,
-							source: string,
-							leaf: WorkspaceLeaf
-						) => {
-							const userFunc = await this.getUserScript(f.path);
-							userFunc({ seApi: this.seApi });
+						async (menu: Menu, file: TAbstractFile) => {
+							this.seApi.setFile(file);
+							this.addMenuItem(menu, f);
 						}
 					)
 				);
@@ -148,18 +143,7 @@ export default class ScriptExecutor extends Plugin {
 							if (selection === "") {
 								return;
 							}
-							menu.addItem((item) => {
-								item.setIcon(f.icon)
-									.setTitle(f.name)
-									.onClick(async () => {
-										const userScripts =
-											await this.getUserScript(f.path);
-										await userScripts({
-											seApi: this.seApi,
-										});
-										log("info", `Running: ${f.path}`);
-									});
-							});
+							this.addMenuItem(menu, f);
 						}
 					)
 				);
@@ -167,15 +151,19 @@ export default class ScriptExecutor extends Plugin {
 		});
 	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
-	}
-
-	onunload() {
-		log(
-			"info",
-			`unloading plugin "${this.manifest.name}" v${this.manifest.version}`
-		);
+	addMenuItem(menu: Menu, f: ClickableFunc) {
+		menu.addItem((item) => {
+			item.setIcon(f.icon)
+				.setTitle(f.name)
+				.onClick(async () => {
+					const userScripts = await this.getUserScript(f.path);
+					log("info", `Running: ${f.path}`);
+					await userScripts({
+						seApi: this.seApi,
+					});
+					this.seApi.setFile(this.app.workspace.getActiveFile());
+				});
+		});
 	}
 
 	async getUserScript(path: string) {
@@ -199,5 +187,16 @@ export default class ScriptExecutor extends Plugin {
 		}
 		const contents = await this.app.vault.read(scriptFile);
 		return `(function(require, module, exports) { ${contents} })`;
+	}
+
+	async saveSettings() {
+		await this.saveData(this.settings);
+	}
+
+	onunload() {
+		log(
+			"info",
+			`unloading plugin "${this.manifest.name}" v${this.manifest.version}`
+		);
 	}
 }

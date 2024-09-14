@@ -1,4 +1,4 @@
-import { App, Notice } from "obsidian";
+import { App, Notice, TAbstractFile } from "obsidian";
 import EditorHelper from "src/helper/EditorHelper";
 import FileHelper from "src/helper/FileHelper";
 import { BaseLLM } from "src/types/type";
@@ -10,6 +10,9 @@ export default class ScriptExecutorApi {
 	constructor(readonly app: App, private readonly llm: BaseLLM) {
 		this.fileHelper = new FileHelper(app);
 		this.editorHelper = new EditorHelper(app);
+	}
+	setFile(file: TAbstractFile | null) {
+		this.fileHelper.setFile(file);
 	}
 	async createNote(
 		folder: string,
