@@ -29,9 +29,5 @@ export class Suggester extends FuzzySuggestModal<any> {
 		this.resolved = true;
 		this.resolvePromise({ ...item });
 	}
-	onClose(): void {
-		if (!this.resolved) {
-			this.rejectPromise("closed");
-		}
-	}
+	onClose(): void {}
 }

@@ -11,6 +11,6 @@ export const DEFAULT_SETTINGS: ScriptExecutorSettings = {
 	commandFuncs: [],
 	llm: {
 		selected: "none",
-		available: {},
+		map: {},
 	},
 };

@@ -1,25 +1,28 @@
 import { App, Editor, EditorPosition } from "obsidian";
 
 export default class EditorHelper {
-	private editor: Editor | undefined;
 	private from: EditorPosition | undefined;
 	private to: EditorPosition | undefined;
 	constructor(private readonly app: App) {}
 
-	private getEditor() {
-		this.editor = this.app.workspace.activeEditor?.editor;
-		if (!this.editor) {
+	private getEditor(): Editor {
+		const editor = this.app.workspace.activeEditor?.editor;
+		if (!editor) {
 			throw new Error("No editor found");
 		}
-		return this.editor;
+		return editor;
 	}
 
 	getSelection() {
-		const selection = this.getEditor()?.getSelection();
+		const editor = this.getEditor();
+		const selection = editor.getSelection();
 		if (selection && selection.length > 0) {
 			return selection;
 		}
-		return this.getEditor().getLine(this.getEditor().getCursor().line);
+		const line = editor.getCursor().line;
+		const lineText = editor.getLine(line);
+		editor.setCursor(line, lineText.length);
+		return lineText;
 	}
 
 	flagPos(type: "from" | "to") {
@@ -31,47 +34,36 @@ export default class EditorHelper {
 		}
 	}
 
-	clearRange() {
+	undo() {
 		const editor = this.getEditor();
-		if (!editor) {
-			return;
-		}
 		this.from && this.to && editor.replaceRange("", this.from, this.to);
 		this.from = this.to = undefined;
 	}
 
 	insertBlankLine(count = 1) {
-		if (!this.getEditor() || !this.editor) {
-			return;
-		}
-		const startPos = this.editor.getCursor("to");
-		this.editor.setCursor(startPos);
-		this.editor.focus();
-		const blank = startPos.ch === 0 ? "" : "\n";
-		this.editor.replaceSelection(blank);
+		const editor = this.getEditor();
+		const pos = editor.getCursor("to");
+		editor.setCursor(pos);
+		editor.focus();
+		const blank = pos.ch === 0 ? "" : "\n";
+		editor.replaceSelection(blank);
 		for (let i = 0; i < count; i++) {
-			this.editor.replaceSelection("\n");
+			editor.replaceSelection("\n");
 		}
 	}
 
-	insertToNextLine(text: string) {
-		if (!this.getEditor() || !this.editor) {
-			return;
-		}
-		this.insertBlankLine();
-		this.editor.replaceSelection(text);
-		this.insertBlankLine(0);
+	insert(text: string) {
+		const editor = this.getEditor();
+		editor.replaceSelection(text);
 	}
 
 	typeWriter(char: string) {
-		if (!this.getEditor() || !this.editor) {
-			return;
-		}
-		this.editor.replaceSelection(char);
-		this.editor.scrollIntoView(
+		const editor = this.getEditor();
+		editor.replaceSelection(char);
+		editor.scrollIntoView(
 			{
-				from: this.editor.getCursor("from"),
-				to: this.editor.getCursor("to"),
+				from: editor.getCursor("from"),
+				to: editor.getCursor("to"),
 			},
 			true
 		);

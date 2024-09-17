@@ -1,4 +1,6 @@
 import { normalizePath } from "obsidian";
+import { PLUGIN_ID } from "src/constants";
+import { LLMChatMessage, LLMChatRole } from "src/types/type";
 
 const BASE64_CODE_REX = /^data:image\/\w+;base64,/;
 const FILENAME_REX = /[\\/:*?"<>|]/g;
@@ -68,4 +70,23 @@ export const secToDuration = (seconds: any) => {
 
 export const formatCodeBlock = (lang: string, content: string) => {
 	return `\`\`\`${lang}\n${content}\n\`\`\`\n`;
+};
+
+export const formatId = (id: string) => {
+	return `${PLUGIN_ID}-${id}`;
+};
+
+export const formatLLMMessage = (
+	role: LLMChatRole,
+	content: string
+): LLMChatMessage => {
+	return { role, content };
+};
+
+export const formatUserMessage = (content: string): LLMChatMessage => {
+	return formatLLMMessage("user", content);
+};
+
+export const formatAssistMessage = (content: string): LLMChatMessage => {
+	return formatLLMMessage("assistant", content);
 };

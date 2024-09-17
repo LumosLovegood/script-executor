@@ -1,32 +1,29 @@
-import {
-	Editor,
-	Menu,
-	ObsidianProtocolData,
-	Plugin,
-	TAbstractFile,
-} from "obsidian";
+import { Menu, Plugin } from "obsidian";
 import { ScriptExecutorSettingTab } from "./ui/settingTab";
 import { log, logging } from "./lib/logging";
-import { BaseLLM, ClickableFunc, ScriptExecutorSettings } from "./types/type";
-import ZhipuLLM from "./llm/ZhipuLLM";
-import ScriptExecutorApi from "./ScriptExectorApi";
-import { DEFAULT_SETTINGS, PLUGIN_ID } from "./constants";
+import { ScriptExecutorSettings } from "./types/type";
+import ScriptExecutorApi from "./ScriptExecutorApi";
+import { DEFAULT_SETTINGS } from "./constants";
 import { Suggester } from "./ui/suggester";
+import ScriptExectorAgent from "./ScriptExecutorAgent";
+import { addContextMenu } from "./utils/elements";
 
 export default class ScriptExecutor extends Plugin {
 	private seApi: ScriptExecutorApi;
-	private settings: ScriptExecutorSettings;
-	private llm: BaseLLM;
-	private statusBar: HTMLElement;
+	private agent: ScriptExectorAgent;
+	private editorStatusBar: HTMLElement;
+	settings: ScriptExecutorSettings;
 	commands: any[];
 
 	async onload() {
 		this.registerLogger();
 		await this.loadSettings();
-		this.registerLLM();
+		this.registerAgent();
 		this.registerSriptExecutorApi();
 		this.registerSettingTab();
-		this.registerAllScripts();
+		this.registerCommands();
+		this.registerEditorMenus();
+		this.registerEditorStatusBar();
 	}
 
 	registerLogger() {
@@ -45,114 +42,25 @@ export default class ScriptExecutor extends Plugin {
 		);
 	}
 
-	registerLLM() {
-		const selectedLLM = this.settings.llm.selected;
-		if (selectedLLM === "zhipu") {
-			this.llm = new ZhipuLLM(this.settings.llm.available.zhipu);
-		}
+	registerAgent() {
+		this.agent = new ScriptExectorAgent(this.settings.llm);
 	}
 
 	registerSriptExecutorApi() {
-		this.seApi = new ScriptExecutorApi(this.app, this.llm);
+		this.seApi = new ScriptExecutorApi(this, this.agent);
 	}
 
 	registerSettingTab() {
-		this.addSettingTab(new ScriptExecutorSettingTab(this, this.app));
+		this.addSettingTab(new ScriptExecutorSettingTab(this));
 	}
 
-	registerAllScripts() {
-		this.registerCommands();
-		this.registerProtocolHandlers();
-		this.registerFileMenus();
-		this.registerEditorMenus();
-		this.registerCodeBlocks();
-	}
-
-	registerCommands() {
-		this.addCommand({
-			id: "se-retry-llm",
-			name: "重新生成",
-			icon: "",
-			callback: async () => {
-				this.seApi.retryChat();
-			},
-		});
-		this.addCommand({
-			id: "se-clear-chat",
-			name: "清除聊天记录",
-			icon: "",
-			callback: async () => {
-				this.seApi.clearChatHistory();
-			},
-		});
-		this.settings.commandFuncs.forEach(async (f) => {
-			if (f.type === "script") {
-				const id = PLUGIN_ID + "-" + f.id;
-				this.addCommand({
-					id: id,
-					name: f.name,
-					icon: f.icon,
-					hotkeys: f.hotkeys,
-					callback: async () => {
-						const userFunc = await this.getUserScript(f.path);
-						userFunc({ seApi: this.seApi });
-					},
-				});
-			}
-		});
-	}
-
-	registerFileMenus() {
-		this.settings.fileFuncs.forEach(async (f) => {
-			if (f.type === "script") {
-				this.registerEvent(
-					this.app.workspace.on(
-						"file-menu",
-						async (menu: Menu, file: TAbstractFile) => {
-							this.seApi.setFile(file);
-							this.addScriptMenuItem(menu, f);
-						}
-					)
-				);
-			}
-		});
-	}
-
-	registerProtocolHandlers() {
-		this.settings.protocolFuncs.forEach(async (f) => {
-			if (f.type === "script") {
-				const identifier = PLUGIN_ID + "-" + f.id;
-				this.registerObsidianProtocolHandler(
-					identifier,
-					async (protocolData: ObsidianProtocolData) => {
-						const userFunc = await this.getUserScript(f.path);
-						userFunc({ seApi: this.seApi, protocolData });
-					}
-				);
-			}
-		});
-	}
-
-	registerCodeBlocks() {
-		this.settings.blockFuncs.forEach(async (f) => {
-			if (f.type === "script") {
-				const identifier = PLUGIN_ID + "-" + f.id;
-				this.registerMarkdownCodeBlockProcessor(
-					identifier,
-					async (src, el, ctx) => {
-						const userFunc = await this.getUserScript(f.path);
-						userFunc({ seApi: this.seApi, src, el, ctx });
-					}
-				);
-			}
-		});
-	}
+	registerCommands() {}
 
 	registerEditorMenus() {
 		this.registerEvent(
 			this.app.workspace.on("editor-menu", async (menu: Menu) => {
 				menu.addItem((item) => {
-					item.setTitle("SE命令集").onClick(async () => {
+					item.setTitle("Show SE Commands").onClick(async () => {
 						const commands = this.getPluginCommands();
 						const { id } = await Suggester.build(
 							commands,
@@ -163,61 +71,22 @@ export default class ScriptExecutor extends Plugin {
 				});
 			})
 		);
-		this.settings.editorFuncs.forEach(async (f) => {
-			if (f.type === "script") {
-				this.registerEvent(
-					this.app.workspace.on(
-						"editor-menu",
-						async (menu: Menu, editor: Editor) => {
-							if (
-								f.alwaysShow ||
-								editor.getSelection().length > 0
-							) {
-								this.addScriptMenuItem(menu, f);
-							}
-						}
-					)
-				);
-			}
+	}
+
+	registerEditorStatusBar() {
+		this.editorStatusBar = this.addStatusBarItem();
+	}
+
+	setEditorStatusBar(text: string, callback: () => void) {
+		const statusBar = this.editorStatusBar;
+		statusBar.createEl("span");
+		statusBar.setText(text);
+		statusBar.onclick = callback;
+		addContextMenu(statusBar, {
+			Retry: () => this.seApi.retryEditorChat(),
+			Undo: () => this.seApi.undoEditorChat(),
 		});
-	}
-
-	addScriptMenuItem(menu: Menu, f: ClickableFunc) {
-		menu.addItem((item) => {
-			item.setIcon(f.icon)
-				.setTitle(f.name)
-				.onClick(async () => {
-					const userScripts = await this.getUserScript(f.path);
-					log("info", `Running: ${f.path}`);
-					await userScripts({
-						seApi: this.seApi,
-					});
-					this.seApi.setFile(this.app.workspace.getActiveFile());
-				});
-		});
-	}
-
-	async getUserScript(path: string) {
-		const req = (s: string) => window.require && window.require(s);
-		const exp: Record<string, any> = {};
-		const mod = { exports: exp };
-		const scriptContents = await this.readScript(path);
-		const func = window.eval(scriptContents);
-		func(req, mod, exp);
-		const userScripts = exp.default || mod.exports;
-		return userScripts;
-	}
-
-	async readScript(path: string) {
-		const scriptFile = this.app.metadataCache.getFirstLinkpathDest(
-			path,
-			""
-		);
-		if (!scriptFile) {
-			return "new Notice(path + 'Not Found.')";
-		}
-		const contents = await this.app.vault.read(scriptFile);
-		return `(function(require, module, exports) { ${contents} })`;
+		this.editorStatusBar = statusBar;
 	}
 
 	async saveSettings() {

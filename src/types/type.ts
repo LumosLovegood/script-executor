@@ -16,7 +16,7 @@ export interface BaseFunc {
 
 export interface ClickableFunc extends BaseFunc {
 	name: string;
-	icon: string;
+	icon?: string;
 }
 
 export interface EditorFunc extends ClickableFunc {
@@ -25,12 +25,12 @@ export interface EditorFunc extends ClickableFunc {
 
 export interface CommandFunc extends ClickableFunc {
 	id: string;
-	hotkeys: Hotkey[];
+	hotkeys?: Hotkey[];
 }
 
 export interface BlockFunc extends BaseFunc {
 	id: string;
-	css: string;
+	css?: string;
 }
 
 export interface ProtocolFunc extends BaseFunc {
@@ -42,6 +42,21 @@ export interface LLMConifg {
 	endpoint: string;
 	model?: string;
 }
+export interface LLMMap {
+	[key: string]: LLMConifg;
+}
+
+export interface LLMInfo {
+	selected: string;
+	map: LLMMap;
+}
+
+export interface LLM {
+	predict: (messages: LLMChatMessage[]) => Promise<string>;
+	stream: (
+		messages: LLMChatMessage[]
+	) => Promise<ReadableStreamDefaultReader<Uint8Array>>;
+}
 export interface ScriptExecutorSettings {
 	scriptFolder: string;
 	editorFuncs: EditorFunc[];
@@ -49,36 +64,24 @@ export interface ScriptExecutorSettings {
 	blockFuncs: BlockFunc[];
 	protocolFuncs: ProtocolFunc[];
 	commandFuncs: CommandFunc[];
-	llm: {
-		selected: string;
-		available: {
-			[key: string]: LLMConifg;
-		};
-	};
+	llm: LLMInfo;
 }
-
 export interface Palette {
 	light: string[];
 	dark: string[];
 }
 
-export interface BaseLLM {
-	chat: (chatParams: LLMChatParams) => Promise<string>;
-	clearHistory: () => void;
-	retry: () => Promise<string>;
-}
-
-export type LLMChatType = "chat" | "streamChat";
 export type LLMChatCallback = (word: string) => void;
+export type LLMChatRole = "system" | "assistant" | "user";
 export interface LLMChatParams {
-	question: string;
-	type?: LLMChatType;
+	// question: string;
+	stream?: boolean;
 	useHistory?: boolean;
 	callback?: LLMChatCallback;
 	delay?: number;
 }
 export interface LLMChatMessage {
-	role: "system" | "assistant" | "user";
+	role: LLMChatRole;
 	content: string;
 }
 export interface ZhipuResponse {
