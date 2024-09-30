@@ -7,12 +7,10 @@ import {
 } from "./types/type";
 import { formatAssistMessage, formatUserMessage } from "./utils/formats";
 import { LLMInfo } from "./types/type";
-import ChunkParser from "./utils/ChunkParser";
 
 const MAX_HISTORY_LENGTH = 5;
 export default class ScriptExectorAgent {
 	private llm: LLM;
-	private chunkParser: any;
 	private history: LLMChatMessage[];
 	private question: string;
 	private reader: ReadableStreamDefaultReader<Uint8Array>;
@@ -20,7 +18,6 @@ export default class ScriptExectorAgent {
 
 	constructor(LLMInfo: LLMInfo) {
 		const { selected, map } = LLMInfo;
-		this.chunkParser = new ChunkParser(selected);
 		if (selected === "zhipu") {
 			this.llm = new ZhipuLLM(map.zhipu);
 		}
@@ -97,7 +94,7 @@ export default class ScriptExectorAgent {
 				continue;
 			}
 			const chunk = decoder.decode(value, { stream: true });
-			const char = this.chunkParser.parse(chunk);
+			const char = this.llm.parseChunk(chunk);
 			llmResult += char;
 			callback && callback(char);
 			delay &&

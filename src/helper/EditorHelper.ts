@@ -42,9 +42,7 @@ export default class EditorHelper {
 
 	insertBlankLine(count = 1) {
 		const editor = this.getEditor();
-		const pos = editor.getCursor("to");
-		editor.setCursor(pos);
-		editor.focus();
+		const pos = this.moveToEnd();
 		const blank = pos.ch === 0 ? "" : "\n";
 		editor.replaceSelection(blank);
 		for (let i = 0; i < count; i++) {
@@ -52,8 +50,18 @@ export default class EditorHelper {
 		}
 	}
 
+	moveToEnd() {
+		const editor = this.getEditor();
+		const pos = editor.getCursor("to");
+		editor.setCursor(pos);
+		editor.focus();
+		// editor.setCursor(pos.line, pos.ch + 1);
+		return pos;
+	}
+
 	insert(text: string) {
 		const editor = this.getEditor();
+		this.moveToEnd();
 		editor.replaceSelection(text);
 	}
 

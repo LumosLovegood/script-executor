@@ -56,6 +56,7 @@ export interface LLM {
 	stream: (
 		messages: LLMChatMessage[]
 	) => Promise<ReadableStreamDefaultReader<Uint8Array>>;
+	parseChunk: (chunk: string) => string;
 }
 export interface ScriptExecutorSettings {
 	scriptFolder: string;
